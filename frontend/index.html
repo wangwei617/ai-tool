@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI增强产设研工作平台</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="top-navbar">
+        <div class="nav-content">
+            <div class="logo">🚀 AI工作平台</div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="switchModule('prototype')">🎯 快速原型</button>
+                <button class="nav-tab" onclick="switchModule('data')">📊 数据分析</button>
+                <button class="nav-tab" onclick="switchModule('code')">🔍 代码审查</button>
+                <button class="nav-tab" onclick="switchModule('design')">🎨 设计生成</button>
+            </div>
+            <div class="nav-right">
+                <button class="btn-icon" onclick="loadProjects()" title="我的项目">📁</button>
+                <button class="btn-icon" title="设置">⚙️</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 左侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-card">
+                <div class="sidebar-title">快速开始</div>
+                <div class="quick-action" onclick="switchModule('prototype')">
+                    <div class="quick-action-icon">🎯</div>
+                    <div class="quick-action-text">
+                        <div class="quick-action-title">快速原型</div>
+                        <div class="quick-action-desc">生成可交互原型</div>
+                    </div>
+                </div>
+                <div class="quick-action" onclick="switchModule('data')">
+                    <div class="quick-action-icon">📊</div>
+                    <div class="quick-action-text">
+                        <div class="quick-action-title">数据分析</div>
+                        <div class="quick-action-desc">Excel数据分析</div>
+                    </div>
+                </div>
+                <div class="quick-action" onclick="switchModule('code')">
+                    <div class="quick-action-icon">🔍</div>
+                    <div class="quick-action-text">
+                        <div class="quick-action-title">代码审查</div>
+                        <div class="quick-action-desc">AI质量检查</div>
+                    </div>
+                </div>
+                <div class="quick-action" onclick="switchModule('design')">
+                    <div class="quick-action-icon">🎨</div>
+                    <div class="quick-action-text">
+                        <div class="quick-action-title">设计生成</div>
+                        <div class="quick-action-desc">自动生成设计</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-card">
+                <div class="sidebar-title">我的项目</div>
+                <div id="projects-list">
+                    <div class="project-item" onclick="loadProjects()">
+                        <div class="project-name">点击加载项目</div>
+                        <div class="project-meta">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 模块1：快速原型验证 -->
+            <div id="module-prototype" class="module-section active">
+                <div class="content-card">
+                    <h1 class="page-title">快速原型验证</h1>
+                    <p class="page-subtitle">用自然语言描述你的想法，AI帮你生成可交互的原型</p>
+                    <div class="input-group">
+                        <label class="input-label" for="prototype-input">描述你的产品想法</label>
+                        <textarea id="prototype-input" class="input-textarea" placeholder="例如：我想做一个在线待办事项应用..."></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="generatePrototype()">✨ 生成原型</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模块2：数据分析与洞察 -->
+            <div id="module-data" class="module-section">
+                <div class="content-card">
+                    <h1 class="page-title">数据分析与洞察</h1>
+                    <p class="page-subtitle">上传Excel文件，AI自动分析数据并生成洞察报告</p>
+                    <div class="upload-area" id="data-upload-area" onclick="document.getElementById('data-file-input').click()">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">点击上传或拖拽Excel文件到此处</div>
+                        <div class="upload-hint">支持 .xlsx, .xls 格式，可上传多个文件</div>
+                        <input type="file" id="data-file-input" class="file-input" multiple accept=".xlsx,.xls" onchange="handleDataFiles(event)">
+                    </div>
+                    <div id="data-file-list" style="margin-top: 20px;"></div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="analyze-btn" onclick="startDataAnalysis()" disabled>🔍 开始分析</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模块3：代码审查与质量保证 -->
+            <div id="module-code" class="module-section">
+                <div class="content-card">
+                    <h1 class="page-title">代码审查与质量保证</h1>
+                    <p class="page-subtitle">AI自动审查代码，发现架构、安全、性能问题</p>
+                    <div class="input-group">
+                        <label class="input-label" for="code-input">粘贴你的代码</label>
+                        <textarea id="code-input" class="input-code" placeholder="粘贴你的代码到这里..."></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="startCodeReview()">🔍 开始审查</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模块4：设计稿自动生成 -->
+            <div id="module-design" class="module-section">
+                <div class="content-card">
+                    <h1 class="page-title">设计稿自动生成</h1>
+                    <p class="page-subtitle">描述设计需求，AI自动生成符合品牌规范的设计稿</p>
+                    <div class="input-group">
+                        <label class="input-label" for="design-input">描述你的设计需求</label>
+                        <textarea id="design-input" class="input-textarea" placeholder="例如：设计一个登录页面..."></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="generateDesign()">✨ 生成设计稿</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 处理中页面 -->
+            <div id="processing-page" class="content-card hidden">
+                <div class="processing-page">
+                    <div class="processing-icon" id="processing-icon">🤖</div>
+                    <h2 class="processing-title" id="processing-title">AI正在处理...</h2>
+                    <div class="processing-status" id="processing-status">正在分析...</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div style="color: #666; margin-top: 10px;" id="progress-text">0%</div>
+                    <div id="project-id-display" style="margin-top: 20px; color: #999; font-size: 14px;"></div>
+                </div>
+            </div>
+
+            <!-- 结果展示区域 -->
+            <div id="results-container" class="content-card hidden"></div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

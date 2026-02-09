@@ -1,0 +1,24 @@
+{
+  "name": "ai-work-platform",
+  "version": "1.0.0",
+  "description": "AI增强产设研工作平台 - Vercel部署版本",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "start": "node api/index.js"
+  },
+  "keywords": ["ai", "product", "design", "development", "vercel"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
