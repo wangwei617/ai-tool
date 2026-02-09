@@ -17,33 +17,89 @@ class AIService {
   /**
    * 调用OpenRouter API
    */
-  async callOpenRouter(model, messages, maxTokens = 4000) {
+  async callOpenRouter(messages, maxTokens = 4000) {
+    if (!OPENROUTER_API_KEY) {
+      throw new Error('未配置 OPENROUTER_API_KEY 环境变量');
+    }
+
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.APP_URL || 'https://ai-tool-zeta.vercel.app',
+        'X-Title': 'AI Work Platform',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        messages: messages,
+        max_tokens: maxTokens,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData.error?.message || `OpenRouter API error: ${response.status}`;
+      console.error('OpenRouter API error:', errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('AI返回了空结果');
+    }
+
+    return content;
+  }
+
+  /**
+   * 从AI返回的文本中提取HTML（去除markdown代码块）
+   */
+  extractHtml(text) {
+    if (!text) return '';
+    let html = text.trim();
+    // 匹配 ```html\n...\n``` 或 ```\n...\n```
+    const codeBlockMatch = html.match(/```(?:html)?\s*\n([\s\S]*?)\n```/);
+    if (codeBlockMatch) {
+      return codeBlockMatch[1].trim();
+    }
+    // 如果没有代码块包裹但是以<!DOCTYPE或<html开头，直接返回
+    if (html.startsWith('<!DOCTYPE') || html.startsWith('<html') || html.startsWith('<div')) {
+      return html;
+    }
+    return html;
+  }
+
+  /**
+   * 从AI返回的文本中提取JSON
+   */
+  extractJson(text) {
+    if (!text) return null;
     try {
-      const response = await fetch(OPENROUTER_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.APP_URL || 'https://your-app.vercel.app',
-          'X-Title': 'AI增强产设研工作平台',
-        },
-        body: JSON.stringify({
-          model: model || DEFAULT_MODEL,
-          messages: messages,
-          max_tokens: maxTokens,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API请求失败: ${response.status}`);
+      // 先尝试直接解析
+      return JSON.parse(text.trim());
+    } catch (e) {
+      // 尝试从markdown代码块中提取
+      const codeBlockMatch = text.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+      if (codeBlockMatch) {
+        try {
+          return JSON.parse(codeBlockMatch[1].trim());
+        } catch (e2) {
+          // 继续尝试
+        }
       }
-
-      const data = await response.json();
-      return data.choices[0]?.message?.content || '';
-    } catch (error) {
-      console.error('OpenRouter API调用失败:', error);
-      throw error;
+      // 尝试匹配第一个完整的JSON对象
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (e3) {
+          // 最终失败
+        }
+      }
+      return null;
     }
   }
 
@@ -57,30 +113,26 @@ class AIService {
 ${requirement}
 
 要求：
-1. 生成完整的HTML代码，包括HTML、CSS和JavaScript
-2. 代码要可以直接在浏览器中运行
-3. 界面要现代化、美观
-4. 包含基本的交互功能（点击、输入等）
-5. 响应式设计，支持移动端
-6. 使用现代CSS特性（Grid、Flexbox等）
+1. 生成完整的HTML代码，包含内联CSS和JavaScript
+2. 必须是一个完整的HTML文件（以<!DOCTYPE html>开头）
+3. 界面要现代化、美观，使用渐变色和圆角设计
+4. 包含基本的交互功能
+5. 响应式设计
+6. 中文界面
 
-请直接返回HTML代码，不要包含其他说明文字。`;
+请只返回HTML代码，不要返回任何解释文字。`;
 
     try {
-      const htmlCode = await this.callOpenRouter(
-        DEFAULT_MODEL,
-        [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const text = await this.callOpenRouter(
+        [{ role: 'user', content: prompt }],
         8000
       );
 
+      const html = this.extractHtml(text);
+
       return {
         success: true,
-        html: htmlCode,
+        html: html,
         message: '原型生成成功',
       };
     } catch (error) {
@@ -99,76 +151,60 @@ ${requirement}
   async analyzeData(fileBuffer, filename) {
     try {
       const XLSX = require('xlsx');
-      
-      // 读取Excel文件
+
       const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
       const sheetNames = workbook.SheetNames;
-      
-      // 提取所有工作表数据
+
       const data = {};
+      let totalRows = 0;
       sheetNames.forEach(sheetName => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        data[sheetName] = jsonData.slice(0, 100); // 限制每个表最多100行
+        data[sheetName] = jsonData.slice(0, 50); // 限制每表50行减少token消耗
+        totalRows += jsonData.length;
       });
 
-      // 构建分析提示
       const dataSummary = JSON.stringify(data, null, 2);
-      const prompt = `你是一个专业的数据分析师。请分析以下Excel数据，并提供：
+      const prompt = `你是一个专业的数据分析师。请分析以下Excel数据，提供深入的分析报告。
 
-1. 数据概览（数据量、字段、数据类型）
-2. 关键洞察（发现的数据模式、异常、趋势）
-3. 数据质量评估（缺失值、异常值等）
-4. 业务建议（基于数据的业务建议）
+文件名：${filename}
+工作表数量：${sheetNames.length}
+总数据行数：${totalRows}
 
-Excel数据：
-${dataSummary}
+数据内容（部分）：
+${dataSummary.substring(0, 6000)}
 
-请以JSON格式返回分析结果，格式如下：
+请以严格的JSON格式返回分析结果（不要添加任何额外文字），格式如下：
 {
   "summary": {
-    "totalSheets": 数量,
-    "totalRows": 总行数,
-    "columns": ["字段列表"]
+    "totalSheets": ${sheetNames.length},
+    "totalRows": ${totalRows},
+    "columns": ["字段名列表"]
   },
   "insights": [
     {
-      "type": "异常/趋势/模式",
-      "description": "描述",
+      "type": "趋势/异常/模式",
+      "description": "具体描述",
       "severity": "high/medium/low"
     }
   ],
   "quality": {
-    "missingValues": 缺失值数量,
-    "anomalies": 异常值数量
+    "missingValues": 0,
+    "anomalies": 0
   },
   "recommendations": [
     "建议1",
-    "建议2"
+    "建议2",
+    "建议3"
   ]
 }`;
 
-      const analysisText = await this.callOpenRouter(
-        DEFAULT_MODEL,
-        [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const text = await this.callOpenRouter(
+        [{ role: 'user', content: prompt }],
         4000
       );
-      let analysisResult;
-      try {
-        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          analysisResult = JSON.parse(jsonMatch[0]);
-        } else {
-          analysisResult = { raw: analysisText };
-        }
-      } catch (e) {
-        analysisResult = { raw: analysisText };
-      }
+
+      const analysisResult = this.extractJson(text) || { raw: text };
 
       return {
         success: true,
@@ -191,26 +227,20 @@ ${dataSummary}
    * 代码审查
    */
   async reviewCode(code) {
-    const prompt = `你是一个专业的代码审查专家。请审查以下代码，检查：
-
-1. 架构问题（代码结构、设计模式）
-2. 安全问题（SQL注入、XSS、安全漏洞）
-3. 性能问题（算法效率、资源使用）
-4. 代码质量（可读性、可维护性、最佳实践）
-5. 业务逻辑（逻辑错误、边界情况）
+    const prompt = `你是一个专业的代码审查专家。请审查以下代码，全面检查架构、安全、性能、质量和逻辑问题。
 
 代码：
 \`\`\`
 ${code}
 \`\`\`
 
-请以JSON格式返回审查结果，格式如下：
+请以严格的JSON格式返回审查结果（不要添加任何额外文字），格式如下：
 {
   "summary": {
-    "totalIssues": 总问题数,
-    "critical": 严重问题数,
-    "warning": 警告数,
-    "info": 建议数
+    "totalIssues": 0,
+    "critical": 0,
+    "warning": 0,
+    "info": 0
   },
   "issues": [
     {
@@ -218,34 +248,18 @@ ${code}
       "severity": "critical/warning/info",
       "title": "问题标题",
       "description": "问题描述",
-      "line": 行号（如果有）,
       "suggestion": "修复建议"
     }
   ]
 }`;
 
     try {
-      const reviewText = await this.callOpenRouter(
-        DEFAULT_MODEL,
-        [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const text = await this.callOpenRouter(
+        [{ role: 'user', content: prompt }],
         4000
       );
-      let reviewResult;
-      try {
-        const jsonMatch = reviewText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          reviewResult = JSON.parse(jsonMatch[0]);
-        } else {
-          reviewResult = { raw: reviewText };
-        }
-      } catch (e) {
-        reviewResult = { raw: reviewText };
-      }
+
+      const reviewResult = this.extractJson(text) || { raw: text };
 
       return {
         success: true,
@@ -266,68 +280,52 @@ ${code}
    * 生成设计稿
    */
   async generateDesign(requirement, brandSettings = {}) {
-    const prompt = `你是一个专业的UI/UX设计师。根据以下设计需求，生成设计稿的HTML/CSS代码。
+    const prompt = `你是一个专业的UI/UX设计师。根据以下设计需求，生成设计稿的完整HTML/CSS代码。
 
 设计需求：
 ${requirement}
 
-品牌设置：
-${JSON.stringify(brandSettings, null, 2)}
+${Object.keys(brandSettings).length > 0 ? `品牌设置：${JSON.stringify(brandSettings)}` : ''}
 
-要求：
-1. 生成完整的HTML/CSS代码
-2. 符合品牌规范（颜色、字体、间距等）
-3. 现代化、美观的设计
-4. 响应式设计
-5. 可以生成多个设计方案（至少3个）
-
-请以JSON格式返回，格式如下：
+请以严格的JSON格式返回（不要添加任何额外文字），格式如下：
 {
   "designs": [
     {
       "id": 1,
       "title": "方案名称",
       "description": "方案描述",
+      "html": "完整的HTML代码（包含内联CSS，以<!DOCTYPE html>开头）",
+      "compliant": true
+    },
+    {
+      "id": 2,
+      "title": "方案名称",
+      "description": "方案描述",
       "html": "完整的HTML代码",
       "compliant": true
     }
   ]
-}`;
+}
+
+请至少生成2个不同风格的设计方案。每个方案的html字段必须是完整可运行的HTML。`;
 
     try {
-      const designText = await this.callOpenRouter(
-        DEFAULT_MODEL,
-        [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const text = await this.callOpenRouter(
+        [{ role: 'user', content: prompt }],
         12000
       );
-      let designResult;
-      try {
-        const jsonMatch = designText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          designResult = JSON.parse(jsonMatch[0]);
-        } else {
-          designResult = {
-            designs: [{
-              id: 1,
-              title: '设计方案',
-              description: requirement,
-              html: designText,
-              compliant: true,
-            }],
-          };
-        }
-      } catch (e) {
+
+      let designResult = this.extractJson(text);
+
+      // 如果JSON解析失败，把整个文本当作单个设计
+      if (!designResult || !designResult.designs) {
+        const html = this.extractHtml(text);
         designResult = {
           designs: [{
             id: 1,
             title: '设计方案',
             description: requirement,
-            html: designText,
+            html: html || text,
             compliant: true,
           }],
         };

@@ -1,15 +1,15 @@
 /**
  * 分析Excel数据 - Vercel Serverless Function
+ * 同步模式：等待AI完成后直接返回结果
  */
 const aiService = require('../_utils/aiService');
-const storage = require('../_utils/storage');
 
 module.exports = async (req, res) => {
   // 设置CORS头
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -21,17 +21,14 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // 处理multipart/form-data
-    // 在Vercel环境中，文件数据在req.body中（Base64编码）或通过formidable解析
     let files = [];
     let title = '数据分析';
 
     // 处理JSON格式（文件以Base64编码）
     if (req.body && req.body.files) {
       files = Array.isArray(req.body.files) ? req.body.files : [req.body.files];
-      // Base64解码
       files = files.map(file => {
-        const buffer = file.data 
+        const buffer = file.data
           ? Buffer.from(file.data, 'base64')
           : (file.buffer ? Buffer.from(file.buffer, 'base64') : null);
         return {
@@ -52,46 +49,26 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 创建项目记录
-    const project = await storage.createProject(
-      'data',
-      title,
-      {
-        fileCount: files.length,
-        filenames: files.map(f => f.originalname || f.name || 'file.xlsx'),
-      }
-    );
-
-    // 异步分析数据（分析第一个文件）
+    // 同步等待AI分析结果
     const firstFile = files[0];
     const fileBuffer = firstFile.buffer || Buffer.from(firstFile.data || '', 'base64');
-    
-    aiService.analyzeData(fileBuffer, firstFile.originalname || firstFile.name || 'file.xlsx')
-      .then(result => {
-        if (result.success) {
-          storage.updateProject(project.id, {
-            analysis: result.analysis,
-            data: result.data,
-            fileCount: files.length,
-          }, 'completed');
-        } else {
-          storage.updateProject(project.id, {
-            error: result.message,
-          }, 'failed');
-        }
-      })
-      .catch(error => {
-        console.error('数据分析错误:', error);
-        storage.updateProject(project.id, {
-          error: error.message,
-        }, 'failed');
-      });
+    const result = await aiService.analyzeData(fileBuffer, firstFile.originalname || firstFile.name || 'file.xlsx');
 
-    res.json({
-      success: true,
-      projectId: project.id,
-      message: '数据分析任务已提交',
-    });
+    if (result.success) {
+      res.json({
+        success: true,
+        analysis: result.analysis,
+        data: result.data,
+        fileCount: files.length,
+        title,
+        message: '数据分析完成',
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: result.message || '数据分析失败',
+      });
+    }
   } catch (error) {
     console.error('数据分析失败:', error);
     res.status(500).json({

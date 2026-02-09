@@ -1,15 +1,15 @@
 /**
  * 审查代码 - Vercel Serverless Function
+ * 同步模式：等待AI完成后直接返回结果
  */
 const aiService = require('../_utils/aiService');
-const storage = require('../_utils/storage');
 
 module.exports = async (req, res) => {
   // 设置CORS头
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -30,39 +30,23 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 创建项目记录
-    const project = await storage.createProject(
-      'code',
-      title || '代码审查',
-      { code }
-    );
+    // 同步等待AI审查结果
+    const result = await aiService.reviewCode(code);
 
-    // 异步审查代码
-    aiService.reviewCode(code)
-      .then(result => {
-        if (result.success) {
-          storage.updateProject(project.id, {
-            review: result.review,
-            code,
-          }, 'completed');
-        } else {
-          storage.updateProject(project.id, {
-            error: result.message,
-          }, 'failed');
-        }
-      })
-      .catch(error => {
-        console.error('代码审查错误:', error);
-        storage.updateProject(project.id, {
-          error: error.message,
-        }, 'failed');
+    if (result.success) {
+      res.json({
+        success: true,
+        review: result.review,
+        code,
+        title: title || '代码审查',
+        message: '代码审查完成',
       });
-
-    res.json({
-      success: true,
-      projectId: project.id,
-      message: '代码审查任务已提交',
-    });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: result.message || '代码审查失败',
+      });
+    }
   } catch (error) {
     console.error('代码审查失败:', error);
     res.status(500).json({

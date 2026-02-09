@@ -1,98 +1,233 @@
 /**
  * 主应用逻辑
+ * 同步模式 - 直接等待API返回完整结果
  */
 let currentModule = 'prototype';
 let dataFiles = [];
-let currentProjectId = null;
 
-// 切换模块
+// ==================== 导航切换 ====================
+
 function switchModule(module) {
-    // 更新导航
+    // 更新导航高亮
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    event?.target?.classList.add('active');
-    
-    // 如果没有event，手动设置第一个匹配的tab
-    if (!event) {
-        const tabs = document.querySelectorAll('.nav-tab');
-        tabs.forEach(tab => {
-            if (tab.textContent.includes(getModuleIcon(module))) {
-                tab.classList.add('active');
-            }
-        });
-    }
+    // 找到对应的tab并激活
+    const icons = { prototype: '快速原型', data: '数据分析', code: '代码审查', design: '设计生成' };
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        if (tab.textContent.includes(icons[module] || '')) {
+            tab.classList.add('active');
+        }
+    });
 
     // 隐藏所有模块
     document.querySelectorAll('.module-section').forEach(section => {
         section.classList.remove('active');
     });
 
-    // 显示当前模块
-    document.getElementById(`module-${module}`).classList.add('active');
-    
-    // 隐藏处理中和结果页面
+    // 显示目标模块
+    const target = document.getElementById(`module-${module}`);
+    if (target) target.classList.add('active');
+
+    // 隐藏处理中和结果
     document.getElementById('processing-page').classList.add('hidden');
     document.getElementById('results-container').classList.add('hidden');
 
     currentModule = module;
 }
 
-function getModuleIcon(module) {
-    const icons = {
-        prototype: '🎯',
-        data: '📊',
-        code: '🔍',
-        design: '🎨',
-    };
-    return icons[module] || '🎯';
+// ==================== 辅助函数 ====================
+
+/**
+ * 从AI返回的文本中提取纯HTML代码（去除markdown代码块标记）
+ */
+function extractHtml(text) {
+    if (!text) return '';
+    // 去除 ```html ... ``` 或 ``` ... ``` 包裹
+    let html = text.trim();
+    // 匹配 ```html\n...\n``` 或 ```\n...\n```
+    const codeBlockMatch = html.match(/^```(?:html)?\s*\n([\s\S]*?)\n```\s*$/);
+    if (codeBlockMatch) {
+        html = codeBlockMatch[1];
+    }
+    // 如果还有残留的开头```html或结尾```
+    if (html.startsWith('```html')) {
+        html = html.slice(7);
+    } else if (html.startsWith('```')) {
+        html = html.slice(3);
+    }
+    if (html.endsWith('```')) {
+        html = html.slice(0, -3);
+    }
+    return html.trim();
 }
 
-// 模块1：生成原型
+/**
+ * 安全地将HTML嵌入iframe的srcdoc属性
+ */
+function safeSrcdoc(html) {
+    if (!html) return '';
+    return html.replace(/"/g, '&quot;');
+}
+
+function getSeverityColor(severity) {
+    const colors = { critical: '#ff4757', warning: '#ffa502', info: '#4facfe' };
+    return colors[severity] || '#999';
+}
+
+function getSeverityText(severity) {
+    const texts = { critical: '严重', warning: '警告', info: '建议' };
+    return texts[severity] || '未知';
+}
+
+// ==================== 显示状态 ====================
+
+function showLoading(title, icon) {
+    document.querySelectorAll('.module-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('results-container').classList.add('hidden');
+
+    const processingPage = document.getElementById('processing-page');
+    processingPage.classList.remove('hidden');
+    document.getElementById('processing-title').textContent = title;
+    document.getElementById('processing-icon').textContent = icon;
+    document.getElementById('processing-status').textContent = 'AI正在处理中，请耐心等待...';
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('progress-text').textContent = '';
+    document.getElementById('project-id-display').textContent = '';
+
+    // 模拟进度动画（纯视觉效果）
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        if (progress < 90) {
+            progress += Math.random() * 8 + 2;
+            if (progress > 90) progress = 90;
+            document.getElementById('progress-fill').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = Math.round(progress) + '%';
+
+            // 更新状态文字
+            if (progress < 20) document.getElementById('processing-status').textContent = '正在连接AI服务...';
+            else if (progress < 40) document.getElementById('processing-status').textContent = '正在分析需求...';
+            else if (progress < 60) document.getElementById('processing-status').textContent = '正在生成内容...';
+            else if (progress < 80) document.getElementById('processing-status').textContent = '正在优化结果...';
+            else document.getElementById('processing-status').textContent = '即将完成...';
+        }
+    }, 800);
+
+    // 返回清理函数
+    return () => clearInterval(progressInterval);
+}
+
+function finishLoading() {
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('progress-text').textContent = '100%';
+    document.getElementById('processing-status').textContent = '完成！';
+}
+
+function showError(title, message) {
+    const container = document.getElementById('results-container');
+    container.innerHTML = `
+        <div class="results-header">
+            <h2 class="results-title">${title}</h2>
+            <button class="btn btn-primary" onclick="switchModule('${currentModule}')">返回</button>
+        </div>
+        <div style="padding: 40px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 20px;">&#9888;&#65039;</div>
+            <p style="color: #666; font-size: 16px;">${message}</p>
+            <p style="color: #999; font-size: 14px; margin-top: 10px;">请检查网络连接或稍后重试</p>
+        </div>
+    `;
+    document.getElementById('processing-page').classList.add('hidden');
+    container.classList.remove('hidden');
+}
+
+// ==================== 模块1：生成原型 ====================
+
 async function generatePrototype() {
     const requirement = document.getElementById('prototype-input').value.trim();
-    
+
     if (!requirement) {
         alert('请输入产品需求描述');
         return;
     }
-
     if (requirement.length < 10) {
         alert('需求描述太短，请提供更详细的信息（至少10个字符）');
         return;
     }
 
+    const stopLoading = showLoading('生成原型中...', '&#127919;');
+
     try {
-        // 提交任务
         const response = await API.generatePrototype(requirement, '新原型');
-        
-        if (!response.success) {
-            throw new Error(response.message || '生成失败');
-        }
+        stopLoading();
+        finishLoading();
 
-        currentProjectId = response.projectId;
-        
-        // 显示处理中页面
-        showProcessing('生成原型', '🎯', [
-            { text: '正在分析需求...', progress: 20 },
-            { text: '正在设计页面结构...', progress: 40 },
-            { text: '正在生成UI组件...', progress: 60 },
-            { text: '正在添加交互功能...', progress: 80 },
-        ]);
-
-        // 轮询获取结果
-        try {
-            const project = await API.pollProjectStatus(currentProjectId, 'prototype');
-            showPrototypeResults(project);
-        } catch (error) {
-            showError('原型生成失败', error.message);
+        if (response.success) {
+            const html = extractHtml(response.html);
+            showPrototypeResults(html, requirement);
+        } else {
+            showError('原型生成失败', response.message || '未知错误');
         }
     } catch (error) {
-        showError('提交失败', error.message);
+        stopLoading();
+        showError('原型生成失败', error.message || '网络请求失败');
     }
 }
 
-// 模块2：数据分析
+function showPrototypeResults(html, requirement) {
+    const container = document.getElementById('results-container');
+    const safeHtml = safeSrcdoc(html);
+
+    container.innerHTML = `
+        <div class="results-header">
+            <h2 class="results-title">&#127919; 原型生成成功</h2>
+            <button class="btn btn-primary" onclick="switchModule('prototype')">返回</button>
+        </div>
+        <div style="padding: 16px 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+            <strong>你的需求：</strong>${escapeHtml(requirement)}
+        </div>
+        ${html ? `
+        <div style="margin-bottom: 20px;">
+            <h3 style="margin-bottom: 10px;">原型预览</h3>
+            <div style="border: 2px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                <iframe srcdoc="${safeHtml}" style="width: 100%; height: 600px; border: none;"></iframe>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: center; padding: 20px;">
+            <button class="btn btn-primary" onclick="openPrototypeFullscreen()">全屏预览</button>
+            <button class="btn" style="background: #f0f0f0; padding: 10px 24px; border-radius: 8px; cursor: pointer;" onclick="downloadPrototypeHtml()">下载HTML</button>
+        </div>
+        ` : '<div style="padding: 40px; text-align: center; color: #999;">未生成有效的原型内容</div>'}
+    `;
+
+    // 保存到全局方便下载/全屏
+    window._lastPrototypeHtml = html;
+
+    document.getElementById('processing-page').classList.add('hidden');
+    container.classList.remove('hidden');
+}
+
+function openPrototypeFullscreen() {
+    if (window._lastPrototypeHtml) {
+        const newWindow = window.open('', '_blank');
+        newWindow.document.write(window._lastPrototypeHtml);
+        newWindow.document.close();
+    }
+}
+
+function downloadPrototypeHtml() {
+    if (window._lastPrototypeHtml) {
+        const blob = new Blob([window._lastPrototypeHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'prototype.html';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+}
+
+// ==================== 模块2：数据分析 ====================
+
 function handleDataFiles(event) {
     const files = Array.from(event.target.files);
     dataFiles = [...dataFiles, ...files];
@@ -108,7 +243,7 @@ function updateDataFileList() {
         item.style.cssText = 'background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;';
         item.innerHTML = `
             <div>
-                <div style="font-weight: 600; color: #333;">${file.name}</div>
+                <div style="font-weight: 600; color: #333;">${escapeHtml(file.name)}</div>
                 <div style="font-size: 12px; color: #999;">${(file.size / 1024).toFixed(2)} KB</div>
             </div>
             <button onclick="removeDataFile(${index})" style="background: #ff4757; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">删除</button>
@@ -129,16 +264,18 @@ async function startDataAnalysis() {
         return;
     }
 
+    const stopLoading = showLoading('数据分析中...', '&#128202;');
+
     try {
-        // 将文件转换为Base64格式（适配Vercel Serverless）
-        const filesWithData = await Promise.all(dataFiles.map(async (file) => {
+        // 将文件转换为Base64
+        const filesWithData = await Promise.all(dataFiles.map(file => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     resolve({
                         name: file.name,
                         originalname: file.name,
-                        data: e.target.result.split(',')[1], // 移除data:xxx;base64,前缀
+                        data: e.target.result.split(',')[1],
                         size: file.size,
                         mimetype: file.type,
                     });
@@ -147,420 +284,308 @@ async function startDataAnalysis() {
             });
         }));
 
-        const response = await fetch('/api/data/analyze', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                files: filesWithData,
-                title: '数据分析',
-            }),
-        });
+        const response = await API.analyzeData(filesWithData, '数据分析');
+        stopLoading();
+        finishLoading();
 
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error(result.message || '分析失败');
-        }
-
-        currentProjectId = result.projectId;
-        
-        showProcessing('数据分析', '📊', [
-            { text: '正在读取Excel文件...', progress: 15 },
-            { text: '正在分析数据结构...', progress: 35 },
-            { text: '正在识别数据模式和异常...', progress: 55 },
-            { text: '正在生成图表...', progress: 75 },
-            { text: '正在提取关键洞察...', progress: 95 },
-        ]);
-
-        try {
-            const project = await API.pollProjectStatus(currentProjectId, 'data');
-            showDataResults(project);
-        } catch (error) {
-            showError('数据分析失败', error.message);
+        if (response.success) {
+            showDataResults(response.analysis || {});
+        } else {
+            showError('数据分析失败', response.message || '未知错误');
         }
     } catch (error) {
-        showError('提交失败', error.message);
+        stopLoading();
+        showError('数据分析失败', error.message || '网络请求失败');
     }
 }
 
-// 模块3：代码审查
+function showDataResults(analysis) {
+    const container = document.getElementById('results-container');
+    const insights = analysis.insights || [];
+    const summary = analysis.summary || {};
+    const recommendations = analysis.recommendations || [];
+    const quality = analysis.quality || {};
+    const rawText = analysis.raw || '';
+
+    container.innerHTML = `
+        <div class="results-header">
+            <h2 class="results-title">&#128202; 分析完成</h2>
+            <button class="btn btn-primary" onclick="switchModule('data')">返回</button>
+        </div>
+
+        ${summary.totalRows ? `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${summary.totalSheets || '-'}</div>
+                <div style="font-size: 13px; opacity: 0.9;">工作表</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${summary.totalRows || '-'}</div>
+                <div style="font-size: 13px; opacity: 0.9;">数据行</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #ffa502 0%, #ff6348 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${quality.anomalies || 0}</div>
+                <div style="font-size: 13px; opacity: 0.9;">异常值</div>
+            </div>
+        </div>
+        ` : ''}
+
+        ${insights.length > 0 ? `
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+            <h3 style="margin-bottom: 16px;">&#128161; 关键洞察</h3>
+            ${insights.map(insight => `
+                <div style="background: rgba(255,255,255,0.15); padding: 14px; border-radius: 8px; margin-bottom: 10px;">
+                    <strong>${escapeHtml(insight.type || '洞察')}：</strong>${escapeHtml(insight.description || '')}
+                </div>
+            `).join('')}
+        </div>
+        ` : ''}
+
+        ${recommendations.length > 0 ? `
+        <div style="background: #f8f9fa; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+            <h3 style="margin-bottom: 16px;">&#128640; 业务建议</h3>
+            ${recommendations.map((rec, i) => `
+                <div style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <strong>${i + 1}.</strong> ${escapeHtml(typeof rec === 'string' ? rec : rec.description || '')}
+                </div>
+            `).join('')}
+        </div>
+        ` : ''}
+
+        ${rawText ? `
+        <div style="background: #f8f9fa; padding: 24px; border-radius: 12px;">
+            <h3 style="margin-bottom: 16px;">&#128203; 分析详情</h3>
+            <div style="white-space: pre-wrap; font-size: 14px; color: #444; line-height: 1.6;">${escapeHtml(rawText)}</div>
+        </div>
+        ` : ''}
+
+        ${!insights.length && !recommendations.length && !rawText ? `
+        <div style="padding: 40px; text-align: center; color: #999;">
+            <p>分析完成，但未识别到结构化数据</p>
+        </div>
+        ` : ''}
+    `;
+    document.getElementById('processing-page').classList.add('hidden');
+    container.classList.remove('hidden');
+}
+
+// ==================== 模块3：代码审查 ====================
+
 async function startCodeReview() {
     const code = document.getElementById('code-input').value.trim();
     if (!code) {
         alert('请输入代码');
         return;
     }
+    if (code.length < 10) {
+        alert('代码内容太短，请输入更多代码');
+        return;
+    }
+
+    const stopLoading = showLoading('代码审查中...', '&#128269;');
 
     try {
         const response = await API.reviewCode(code, '代码审查');
-        
-        if (!response.success) {
-            throw new Error(response.message || '审查失败');
-        }
+        stopLoading();
+        finishLoading();
 
-        currentProjectId = response.projectId;
-        
-        showProcessing('代码审查', '🔍', [
-            { text: '正在分析代码结构...', progress: 15 },
-            { text: '正在检查架构问题...', progress: 30 },
-            { text: '正在扫描安全漏洞...', progress: 50 },
-            { text: '正在分析性能问题...', progress: 70 },
-            { text: '正在检查业务逻辑...', progress: 85 },
-        ]);
-
-        try {
-            const project = await API.pollProjectStatus(currentProjectId, 'code');
-            showCodeResults(project);
-        } catch (error) {
-            showError('代码审查失败', error.message);
+        if (response.success) {
+            showCodeResults(response.review || {});
+        } else {
+            showError('代码审查失败', response.message || '未知错误');
         }
     } catch (error) {
-        showError('提交失败', error.message);
+        stopLoading();
+        showError('代码审查失败', error.message || '网络请求失败');
     }
 }
 
-// 模块4：设计生成
+function showCodeResults(review) {
+    const container = document.getElementById('results-container');
+    const summary = review.summary || {};
+    const issues = review.issues || [];
+    const rawText = review.raw || '';
+
+    container.innerHTML = `
+        <div class="results-header">
+            <h2 class="results-title">&#128269; 审查完成</h2>
+            <button class="btn btn-primary" onclick="switchModule('code')">返回</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${summary.totalIssues || issues.length || 0}</div>
+                <div style="font-size: 13px; opacity: 0.9;">发现问题</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #ff4757 0%, #ff6348 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${summary.critical || 0}</div>
+                <div style="font-size: 13px; opacity: 0.9;">严重</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #ffa502 0%, #ff6348 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${summary.warning || 0}</div>
+                <div style="font-size: 13px; opacity: 0.9;">警告</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 28px; font-weight: bold;">${summary.info || 0}</div>
+                <div style="font-size: 13px; opacity: 0.9;">建议</div>
+            </div>
+        </div>
+
+        ${issues.length > 0 ? issues.map(issue => `
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border-left: 4px solid ${getSeverityColor(issue.severity)}; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <strong>${escapeHtml(issue.title || '问题')}</strong>
+                    <span style="background: ${getSeverityColor(issue.severity)}; color: white; padding: 3px 10px; border-radius: 6px; font-size: 12px;">${getSeverityText(issue.severity)}</span>
+                </div>
+                <p style="color: #666; margin-bottom: 10px; line-height: 1.5;">${escapeHtml(issue.description || '')}</p>
+                ${issue.suggestion ? `
+                <div style="background: white; padding: 12px; border-radius: 8px; font-size: 13px; color: #333; border: 1px solid #e0e0e0;">
+                    <strong>建议：</strong>${escapeHtml(issue.suggestion)}
+                </div>
+                ` : ''}
+            </div>
+        `).join('') : ''}
+
+        ${rawText ? `
+        <div style="background: #f8f9fa; padding: 24px; border-radius: 12px;">
+            <h3 style="margin-bottom: 16px;">审查详情</h3>
+            <div style="white-space: pre-wrap; font-size: 14px; color: #444; line-height: 1.6;">${escapeHtml(rawText)}</div>
+        </div>
+        ` : ''}
+
+        ${!issues.length && !rawText ? `
+        <div style="padding: 40px; text-align: center; color: #666;">
+            <div style="font-size: 48px; margin-bottom: 10px;">&#9989;</div>
+            <p>代码质量良好，未发现明显问题</p>
+        </div>
+        ` : ''}
+    `;
+    document.getElementById('processing-page').classList.add('hidden');
+    container.classList.remove('hidden');
+}
+
+// ==================== 模块4：设计生成 ====================
+
 async function generateDesign() {
     const requirement = document.getElementById('design-input').value.trim();
     if (!requirement) {
         alert('请输入设计需求');
         return;
     }
+    if (requirement.length < 10) {
+        alert('设计需求描述太短，请提供更多信息（至少10个字符）');
+        return;
+    }
+
+    const stopLoading = showLoading('设计生成中...', '&#127912;');
 
     try {
         const response = await API.generateDesign(requirement, '新设计', {});
-        
-        if (!response.success) {
-            throw new Error(response.message || '生成失败');
-        }
+        stopLoading();
+        finishLoading();
 
-        currentProjectId = response.projectId;
-        
-        showProcessing('设计生成', '🎨', [
-            { text: '正在分析设计需求...', progress: 15 },
-            { text: '正在检查品牌规范...', progress: 30 },
-            { text: '正在生成设计方案...', progress: 50 },
-            { text: '正在优化设计细节...', progress: 75 },
-            { text: '正在验证品牌规范...', progress: 90 },
-        ]);
-
-        try {
-            const project = await API.pollProjectStatus(currentProjectId, 'design');
-            showDesignResults(project);
-        } catch (error) {
-            showError('设计生成失败', error.message);
+        if (response.success) {
+            showDesignResults(response.designs || [], requirement);
+        } else {
+            showError('设计生成失败', response.message || '未知错误');
         }
     } catch (error) {
-        showError('提交失败', error.message);
+        stopLoading();
+        showError('设计生成失败', error.message || '网络请求失败');
     }
 }
 
-// 显示处理中页面
-function showProcessing(title, icon, statuses) {
-    document.querySelectorAll('.module-section').forEach(s => s.classList.remove('active'));
-    document.getElementById('processing-page').classList.remove('hidden');
-    document.getElementById('results-container').classList.add('hidden');
-
-    document.getElementById('processing-title').textContent = title;
-    document.getElementById('processing-icon').textContent = icon;
-    
-    if (currentProjectId) {
-        document.getElementById('project-id-display').textContent = `项目ID: ${currentProjectId}`;
-    }
-
-    // 模拟进度（实际进度由轮询更新）
-    let statusIndex = 0;
-    const interval = setInterval(() => {
-        if (statusIndex < statuses.length) {
-            const status = statuses[statusIndex];
-            document.getElementById('processing-status').textContent = status.text;
-            document.getElementById('progress-fill').style.width = status.progress + '%';
-            document.getElementById('progress-text').textContent = status.progress + '%';
-            statusIndex++;
-        } else {
-            clearInterval(interval);
-        }
-    }, 2000);
-}
-
-// 显示错误
-function showError(title, message) {
+function showDesignResults(designs, requirement) {
     const container = document.getElementById('results-container');
-    container.innerHTML = `
-        <div class="results-header">
-            <h2 class="results-title">❌ ${title}</h2>
-            <button class="btn btn-primary" onclick="switchModule('${currentModule}')">返回</button>
-        </div>
-        <div style="padding: 30px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-            <p style="color: #666; font-size: 16px;">${message}</p>
-        </div>
-    `;
-    document.getElementById('processing-page').classList.add('hidden');
-    container.classList.remove('hidden');
-}
 
-// 结果显示函数
-function showPrototypeResults(project) {
-    const container = document.getElementById('results-container');
-    const output = project.output_data || {};
-    const html = output.html || '';
-    const requirement = project.input_data?.requirement || '';
-    
-    container.innerHTML = `
-        <div class="results-header">
-            <h2 class="results-title">🎯 原型生成成功</h2>
-            <button class="btn btn-primary" onclick="switchModule('prototype')">返回</button>
-        </div>
-        <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
-            <strong>你的需求：</strong><br>
-            ${requirement}
-        </div>
-        ${html ? `
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin-bottom: 10px;">原型预览</h3>
-            <div style="border: 2px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                <iframe srcdoc="${html.replace(/"/g, '&quot;').replace(/'/g, '&apos;')}" style="width: 100%; height: 600px; border: none;"></iframe>
-            </div>
-        </div>
-        ` : '<div style="padding: 40px; text-align: center; color: #999;">原型正在生成中...</div>'}
-        <div style="text-align: center; padding: 20px;">
-            ${html ? `<button class="btn btn-primary" onclick="downloadPrototype('${project.id}')">下载HTML</button>` : ''}
-        </div>
-    `;
-    document.getElementById('processing-page').classList.add('hidden');
-    container.classList.remove('hidden');
-}
+    // 保存设计数据到全局
+    window._lastDesigns = designs;
 
-function showDataResults(project) {
-    const container = document.getElementById('results-container');
-    const output = project.output_data || {};
-    const analysis = output.analysis || {};
-    
-    const insights = analysis.insights || [];
-    const summary = analysis.summary || {};
-    
-    container.innerHTML = `
-        <div class="results-header">
-            <h2 class="results-title">📊 分析结果</h2>
-            <button class="btn btn-primary" onclick="switchModule('data')">返回</button>
-        </div>
-        ${insights.length > 0 ? `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px;">
-            <h3 style="margin-bottom: 20px;">💡 关键洞察</h3>
-            ${insights.map(insight => `
-                <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <strong>${insight.type || '洞察'}：</strong>${insight.description || ''}
-                </div>
-            `).join('')}
-        </div>
-        ` : ''}
-        <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px;">
-            <p style="color: #666; margin-bottom: 20px;">数据分析完成</p>
-            <button class="btn btn-primary" onclick="alert('导出功能开发中')">导出报告</button>
-        </div>
-    `;
-    document.getElementById('processing-page').classList.add('hidden');
-    container.classList.remove('hidden');
-}
-
-function showCodeResults(project) {
-    const container = document.getElementById('results-container');
-    const output = project.output_data || {};
-    const review = output.review || {};
-    
-    const summary = review.summary || {};
-    const issues = review.issues || [];
-    
-    container.innerHTML = `
-        <div class="results-header">
-            <h2 class="results-title">🔍 审查结果</h2>
-            <button class="btn btn-primary" onclick="switchModule('code')">返回</button>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 36px; font-weight: bold; margin-bottom: 10px;">${summary.totalIssues || 0}</div>
-                <div style="font-size: 14px; opacity: 0.9;">发现问题</div>
-            </div>
-            <div style="background: linear-gradient(135deg, #ff4757 0%, #ff6348 100%); color: white; padding: 25px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 36px; font-weight: bold; margin-bottom: 10px;">${summary.critical || 0}</div>
-                <div style="font-size: 14px; opacity: 0.9;">严重问题</div>
-            </div>
-            <div style="background: linear-gradient(135deg, #ffa502 0%, #ff6348 100%); color: white; padding: 25px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 36px; font-weight: bold; margin-bottom: 10px;">${summary.warning || 0}</div>
-                <div style="font-size: 14px; opacity: 0.9;">警告</div>
-            </div>
-            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 25px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 36px; font-weight: bold; margin-bottom: 10px;">${summary.info || 0}</div>
-                <div style="font-size: 14px; opacity: 0.9;">建议</div>
-            </div>
-        </div>
-        ${issues.map(issue => `
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border-left: 4px solid ${getSeverityColor(issue.severity)}; margin-bottom: 15px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <strong>${issue.title || '问题'}</strong>
-                    <span style="background: ${getSeverityColor(issue.severity)}; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px;">${getSeverityText(issue.severity)}</span>
-                </div>
-                <p style="color: #666; margin-bottom: 10px;">${issue.description || ''}</p>
-                ${issue.suggestion ? `
-                <div style="background: white; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px;">
-                    ${issue.suggestion}
-                </div>
-                ` : ''}
-            </div>
-        `).join('')}
-    `;
-    document.getElementById('processing-page').classList.add('hidden');
-    container.classList.remove('hidden');
-}
-
-function showDesignResults(project) {
-    const container = document.getElementById('results-container');
-    const output = project.output_data || {};
-    const designs = output.designs || [];
-    
-    if (designs.length === 0) {
+    if (!designs || designs.length === 0) {
         container.innerHTML = `
             <div class="results-header">
-                <h2 class="results-title">🎨 设计生成中</h2>
+                <h2 class="results-title">&#127912; 设计生成</h2>
                 <button class="btn btn-primary" onclick="switchModule('design')">返回</button>
             </div>
             <div style="padding: 40px; text-align: center; color: #999;">
-                设计方案正在生成中，请稍候...
+                未生成有效的设计方案，请尝试提供更详细的需求描述
             </div>
         `;
         document.getElementById('processing-page').classList.add('hidden');
         container.classList.remove('hidden');
         return;
     }
-    
+
     container.innerHTML = `
         <div class="results-header">
-            <h2 class="results-title">🎨 设计稿方案</h2>
+            <h2 class="results-title">&#127912; 设计方案 (${designs.length}个)</h2>
             <button class="btn btn-primary" onclick="switchModule('design')">返回</button>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px;">
-            ${designs.map(design => `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px;">
+            ${designs.map((design, index) => {
+                const designHtml = extractHtml(design.html || '');
+                const safeHtml = safeSrcdoc(designHtml);
+                return `
                 <div style="background: white; border: 2px solid #e0e0e0; border-radius: 12px; overflow: hidden;">
-                    <div style="width: 100%; height: 300px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #999; overflow: hidden;">
-                        ${design.html ? `<iframe srcdoc="${(design.html || '').replace(/"/g, '&quot;').replace(/'/g, '&apos;')}" style="width: 100%; height: 100%; border: none;"></iframe>` : '<div>设计预览</div>'}
+                    <div style="width: 100%; height: 280px; background: #f8f9fa; overflow: hidden;">
+                        ${designHtml ? `<iframe srcdoc="${safeHtml}" style="width: 100%; height: 100%; border: none; pointer-events: none;"></iframe>` : '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">设计预览</div>'}
                     </div>
-                    <div style="padding: 20px;">
-                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">${design.title || '设计方案'}</div>
-                        ${design.description ? `<div style="color: #666; font-size: 14px; margin-bottom: 10px;">${design.description}</div>` : ''}
-                        ${design.compliant ? '<div style="background: #51cf66; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px; display: inline-block; margin-bottom: 15px;">✓ 符合品牌规范</div>' : ''}
-                        <div style="display: flex; gap: 10px; margin-top: 15px;">
-                            ${design.html ? `<button class="btn btn-primary" style="flex: 1; padding: 10px;" onclick="viewDesignFullscreen('${design.id}', \`${design.html.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">全屏查看</button>` : ''}
-                            ${design.html ? `<button class="btn" style="flex: 1; padding: 10px; background: #f0f0f0;" onclick="downloadDesign('${design.id}', \`${design.html.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">导出HTML</button>` : ''}
+                    <div style="padding: 16px;">
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">${escapeHtml(design.title || '方案 ' + (index + 1))}</div>
+                        ${design.description ? `<div style="color: #666; font-size: 13px; margin-bottom: 12px; line-height: 1.4;">${escapeHtml(design.description)}</div>` : ''}
+                        ${design.compliant ? '<div style="background: #51cf66; color: white; padding: 3px 10px; border-radius: 6px; font-size: 12px; display: inline-block; margin-bottom: 12px;">&#10003; 符合品牌规范</div>' : ''}
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            ${designHtml ? `<button class="btn btn-primary" style="flex: 1; padding: 8px; font-size: 13px;" onclick="viewDesignFullscreen(${index})">全屏查看</button>` : ''}
+                            ${designHtml ? `<button class="btn" style="flex: 1; padding: 8px; font-size: 13px; background: #f0f0f0; border-radius: 8px; cursor: pointer;" onclick="downloadDesignHtml(${index})">导出HTML</button>` : ''}
                         </div>
                     </div>
                 </div>
-            `).join('')}
+            `}).join('')}
         </div>
     `;
     document.getElementById('processing-page').classList.add('hidden');
     container.classList.remove('hidden');
 }
 
-function viewDesignFullscreen(id, html) {
-    const newWindow = window.open('', '_blank');
-    newWindow.document.write(html);
-    newWindow.document.close();
-}
-
-function downloadDesign(id, html) {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `design-${id}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-function getSeverityColor(severity) {
-    const colors = {
-        critical: '#ff4757',
-        warning: '#ffa502',
-        info: '#4facfe',
-    };
-    return colors[severity] || '#999';
-}
-
-function getSeverityText(severity) {
-    const texts = {
-        critical: '严重',
-        warning: '警告',
-        info: '建议',
-    };
-    return texts[severity] || '未知';
-}
-
-// 加载项目列表
-async function loadProjects() {
-    try {
-        const response = await API.getProjects(null, 10);
-        if (response.success) {
-            const list = document.getElementById('projects-list');
-            if (response.projects.length === 0) {
-                list.innerHTML = '<div class="project-item"><div class="project-name">暂无项目</div></div>';
-            } else {
-                list.innerHTML = response.projects.map(project => `
-                    <div class="project-item" onclick="viewProject('${project.type}', '${project.id}')">
-                        <div class="project-name">${project.title || '未命名项目'}</div>
-                        <div class="project-meta">${formatDate(project.created_at)} · ${getTypeName(project.type)}</div>
-                    </div>
-                `).join('');
-            }
-        }
-    } catch (error) {
-        console.error('加载项目失败:', error);
+function viewDesignFullscreen(index) {
+    const designs = window._lastDesigns;
+    if (designs && designs[index]) {
+        const html = extractHtml(designs[index].html || '');
+        const newWindow = window.open('', '_blank');
+        newWindow.document.write(html);
+        newWindow.document.close();
     }
 }
 
-function getTypeName(type) {
-    const names = {
-        prototype: '原型',
-        data: '数据',
-        code: '代码',
-        design: '设计',
-    };
-    return names[type] || '未知';
+function downloadDesignHtml(index) {
+    const designs = window._lastDesigns;
+    if (designs && designs[index]) {
+        const html = extractHtml(designs[index].html || '');
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `design-${index + 1}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 }
 
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
-    return date.toLocaleDateString();
-}
+// ==================== 文件拖拽 ====================
 
-// 文件拖拽上传
 const uploadArea = document.getElementById('data-upload-area');
 if (uploadArea) {
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadArea.classList.add('dragover');
     });
-
     uploadArea.addEventListener('dragleave', () => {
         uploadArea.classList.remove('dragover');
     });
-
     uploadArea.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadArea.classList.remove('dragover');
-        const files = Array.from(e.dataTransfer.files).filter(file => 
+        const files = Array.from(e.dataTransfer.files).filter(file =>
             file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
         );
         dataFiles = [...dataFiles, ...files];
@@ -569,85 +594,22 @@ if (uploadArea) {
     });
 }
 
-// 辅助函数
-function viewProject(type, id) {
-    switchModule(type);
-    // 加载项目详情
-    loadProjectDetails(type, id);
+// ==================== 通用工具 ====================
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-async function loadProjectDetails(type, id) {
-    try {
-        let project;
-        switch (type) {
-            case 'prototype':
-                project = await API.getPrototype(id);
-                break;
-            case 'data':
-                project = await API.getDataAnalysis(id);
-                break;
-            case 'code':
-                project = await API.getCodeReview(id);
-                break;
-            case 'design':
-                project = await API.getDesign(id);
-                break;
-            default:
-                return;
-        }
+// ==================== 页面初始化 ====================
 
-        if (project.success && project.project) {
-            if (project.project.status === 'completed') {
-                switch (type) {
-                    case 'prototype':
-                        showPrototypeResults(project.project);
-                        break;
-                    case 'data':
-                        showDataResults(project.project);
-                        break;
-                    case 'code':
-                        showCodeResults(project.project);
-                        break;
-                    case 'design':
-                        showDesignResults(project.project);
-                        break;
-                }
-            } else {
-                alert('项目还在处理中，请稍后再试');
-            }
-        }
-    } catch (error) {
-        console.error('加载项目失败:', error);
-        alert('加载项目失败: ' + error.message);
-    }
-}
-
-function downloadPrototype(id) {
-    // 下载原型HTML
-    API.getPrototype(id).then(result => {
-        if (result.success && result.project.output_data.html) {
-            const blob = new Blob([result.project.output_data.html], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `prototype-${id}.html`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-    });
-}
-
-function viewDesign(id) {
-    console.log('查看设计:', id);
-    // 可以添加查看设计详情的逻辑
-}
-
-function downloadDesign(id) {
-    console.log('下载设计:', id);
-    // 可以添加下载设计的逻辑
-}
-
-// 页面加载时加载项目列表
 window.addEventListener('DOMContentLoaded', () => {
-    loadProjects();
+    // 简单的健康检查
+    API.healthCheck().then(data => {
+        console.log('API服务正常:', data);
+    }).catch(err => {
+        console.warn('API服务检查失败:', err.message);
+    });
 });
