@@ -3,155 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI增强产设研工作平台</title>
+    <title>AI全流程产研平台</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <!-- 顶部导航栏 -->
     <nav class="top-navbar">
         <div class="nav-content">
-            <div class="logo">🚀 AI工作平台</div>
-            <div class="nav-tabs">
-                <button class="nav-tab active" onclick="switchModule('prototype')">🎯 快速原型</button>
-                <button class="nav-tab" onclick="switchModule('data')">📊 数据分析</button>
-                <button class="nav-tab" onclick="switchModule('code')">🔍 代码审查</button>
-                <button class="nav-tab" onclick="switchModule('design')">🎨 设计生成</button>
+            <div class="logo">🚀 AI全流程产研平台</div>
+            <div class="project-info">
+                <span class="project-label">当前项目：</span>
+                <span id="current-project-name" class="project-name" contenteditable="true">未命名产品 v1.0</span>
             </div>
             <div class="nav-right">
-                <button class="btn-icon" onclick="loadProjects()" title="我的项目">📁</button>
-                <button class="btn-icon" title="设置">⚙️</button>
+                <button class="btn-icon" onclick="resetProject()" title="新建项目">➕</button>
+                <div class="api-status" id="api-status-indicator" title="API状态">🟢</div>
             </div>
         </div>
     </nav>
 
     <!-- 主容器 -->
     <div class="main-container">
-        <!-- 左侧边栏 -->
-        <aside class="sidebar">
-            <div class="sidebar-card">
-                <div class="sidebar-title">快速开始</div>
-                <div class="quick-action" onclick="switchModule('prototype')">
-                    <div class="quick-action-icon">🎯</div>
-                    <div class="quick-action-text">
-                        <div class="quick-action-title">快速原型</div>
-                        <div class="quick-action-desc">生成可交互原型</div>
+        <!-- 左侧流水线导航 -->
+        <aside class="pipeline-sidebar">
+            <div class="pipeline-title">产品流水线</div>
+            
+            <div class="pipeline-steps">
+                <!-- 阶段1：需求 -->
+                <div class="step-item active" onclick="switchStage('requirement')" id="step-requirement">
+                    <div class="step-icon">📝</div>
+                    <div class="step-content">
+                        <div class="step-title">需求定义</div>
+                        <div class="step-desc">沟通与确认</div>
                     </div>
+                    <div class="step-status" id="status-requirement">进行中</div>
                 </div>
-                <div class="quick-action" onclick="switchModule('data')">
-                    <div class="quick-action-icon">📊</div>
-                    <div class="quick-action-text">
-                        <div class="quick-action-title">数据分析</div>
-                        <div class="quick-action-desc">Excel数据分析</div>
-                    </div>
-                </div>
-                <div class="quick-action" onclick="switchModule('code')">
-                    <div class="quick-action-icon">🔍</div>
-                    <div class="quick-action-text">
-                        <div class="quick-action-title">代码审查</div>
-                        <div class="quick-action-desc">AI质量检查</div>
-                    </div>
-                </div>
-                <div class="quick-action" onclick="switchModule('design')">
-                    <div class="quick-action-icon">🎨</div>
-                    <div class="quick-action-text">
-                        <div class="quick-action-title">设计生成</div>
-                        <div class="quick-action-desc">自动生成设计</div>
-                    </div>
-                </div>
-            </div>
+                
+                <div class="step-line"></div>
 
-            <div class="sidebar-card">
-                <div class="sidebar-title">我的项目</div>
-                <div id="projects-list">
-                    <div class="project-item" onclick="loadProjects()">
-                        <div class="project-name">点击加载项目</div>
-                        <div class="project-meta">加载中...</div>
+                <!-- 阶段2：MVP -->
+                <div class="step-item" onclick="switchStage('mvp')" id="step-mvp">
+                    <div class="step-icon">⚡️</div>
+                    <div class="step-content">
+                        <div class="step-title">MVP搭建</div>
+                        <div class="step-desc">生成核心功能</div>
                     </div>
+                    <div class="step-status" id="status-mvp">待开始</div>
+                </div>
+
+                <div class="step-line"></div>
+
+                <!-- 阶段3：UI优化 -->
+                <div class="step-item" onclick="switchStage('ui')" id="step-ui">
+                    <div class="step-icon">🎨</div>
+                    <div class="step-content">
+                        <div class="step-title">UI/UX优化</div>
+                        <div class="step-desc">视觉与交互升级</div>
+                    </div>
+                    <div class="step-status" id="status-ui">待开始</div>
+                </div>
+
+                <div class="step-line"></div>
+
+                <!-- 阶段4：质量验收 -->
+                <div class="step-item" onclick="switchStage('qa')" id="step-qa">
+                    <div class="step-icon">🔍</div>
+                    <div class="step-content">
+                        <div class="step-title">质量验收</div>
+                        <div class="step-desc">审查与测试</div>
+                    </div>
+                    <div class="step-status" id="status-qa">待开始</div>
+                </div>
+
+                <div class="step-line"></div>
+
+                <!-- 阶段5：数据复盘 -->
+                <div class="step-item" onclick="switchStage('data')" id="step-data">
+                    <div class="step-icon">🚀</div>
+                    <div class="step-content">
+                        <div class="step-title">上线复盘</div>
+                        <div class="step-desc">数据效果分析</div>
+                    </div>
+                    <div class="step-status" id="status-data">待开始</div>
                 </div>
             </div>
         </aside>
 
-        <!-- 主内容区 -->
-        <main class="main-content">
-            <!-- 模块1：快速原型验证 -->
-            <div id="module-prototype" class="module-section active">
-                <div class="content-card">
-                    <h1 class="page-title">快速原型验证</h1>
-                    <p class="page-subtitle">用自然语言描述你的想法，AI帮你生成可交互的原型</p>
+        <!-- 主工作台 -->
+        <main class="workspace">
+            <!-- 阶段1：需求定义 -->
+            <div id="stage-requirement" class="stage-section active">
+                <div class="workspace-header">
+                    <h2>📝 需求定义</h2>
+                    <p>清晰的需求是优秀产品的第一步。请描述你的产品构想，AI 将协助你完善。</p>
+                </div>
+                <div class="workspace-content">
                     <div class="input-group">
-                        <label class="input-label" for="prototype-input">描述你的产品想法</label>
-                        <textarea id="prototype-input" class="input-textarea" placeholder="例如：我想做一个在线待办事项应用..."></textarea>
+                        <label class="input-label">产品构想 / 需求描述</label>
+                        <textarea id="req-input" class="input-textarea" placeholder="例如：我想做一个在线待办事项应用，支持任务分类、优先级排序，并且有一个数据看板统计完成率..."></textarea>
                     </div>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" onclick="generatePrototype()">✨ 生成原型</button>
+                    <div class="action-bar">
+                        <button class="btn btn-primary" onclick="confirmRequirement()">✅ 确认需求并进入开发</button>
                     </div>
                 </div>
             </div>
 
-            <!-- 模块2：数据分析与洞察 -->
-            <div id="module-data" class="module-section">
-                <div class="content-card">
-                    <h1 class="page-title">数据分析与洞察</h1>
-                    <p class="page-subtitle">上传Excel文件，AI自动分析数据并生成洞察报告</p>
-                    <div class="upload-area" id="data-upload-area" onclick="document.getElementById('data-file-input').click()">
-                        <div class="upload-icon">📁</div>
-                        <div class="upload-text">点击上传或拖拽Excel文件到此处</div>
-                        <div class="upload-hint">支持 .xlsx, .xls 格式，可上传多个文件</div>
+            <!-- 阶段2：MVP搭建 -->
+            <div id="stage-mvp" class="stage-section">
+                <div class="workspace-header">
+                    <h2>⚡️ MVP 快速搭建</h2>
+                    <p>基于确认的需求，AI 正在生成最小可行性产品（MVP）代码。</p>
+                </div>
+                <div class="workspace-content split-view">
+                    <div class="view-left">
+                        <div class="code-preview-header">
+                            <span>当前版本：v1.0 (MVP)</span>
+                            <button class="btn-sm" onclick="regenerateMVP()">🔄 重新生成</button>
+                        </div>
+                        <div id="mvp-preview" class="preview-container empty-state">
+                            <div class="empty-icon">⚙️</div>
+                            <p>点击下方按钮开始生成 MVP</p>
+                        </div>
+                    </div>
+                    <div class="view-right">
+                        <div class="action-panel">
+                            <h3>执行操作</h3>
+                            <button class="btn btn-primary full-width" onclick="generateMVP()">⚡️ 生成 MVP 代码</button>
+                            <div class="log-panel" id="mvp-logs"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段3：UI/UX优化 -->
+            <div id="stage-ui" class="stage-section">
+                <div class="workspace-header">
+                    <h2>🎨 交互与 UI 优化</h2>
+                    <p>在 MVP 基础上，注入设计规范，提升视觉体验和交互流畅度。</p>
+                </div>
+                <div class="workspace-content split-view">
+                    <div class="view-left">
+                        <div class="code-preview-header">
+                            <span>当前版本：v2.0 (UI Optimized)</span>
+                            <div class="tab-group">
+                                <button class="tab-btn active" onclick="switchPreview('ui', 'desktop')">🖥 桌面端</button>
+                                <button class="tab-btn" onclick="switchPreview('ui', 'mobile')">📱 移动端</button>
+                            </div>
+                        </div>
+                        <div id="ui-preview" class="preview-container empty-state">
+                            <div class="empty-icon">🎨</div>
+                            <p>等待 MVP 构建完成...</p>
+                        </div>
+                    </div>
+                    <div class="view-right">
+                        <div class="action-panel">
+                            <h3>优化方向</h3>
+                            <textarea id="ui-refinement" class="input-textarea-sm" placeholder="例如：使用蓝色系主色调，增加卡片阴影，按钮改为圆角..."></textarea>
+                            <button class="btn btn-primary full-width" onclick="optimizeUI()">🎨 执行 UI 升级</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段4：质量验收 -->
+            <div id="stage-qa" class="stage-section">
+                <div class="workspace-header">
+                    <h2>🔍 代码审查与测试</h2>
+                    <p>对当前代码进行全方位体检，发现潜在 Bug 和性能瓶颈。</p>
+                </div>
+                <div class="workspace-content">
+                    <div class="qa-grid">
+                        <div class="qa-card" id="qa-code-review">
+                            <h3>🔍 代码审查</h3>
+                            <div class="qa-status pending">待执行</div>
+                            <div class="qa-result" id="review-result"></div>
+                        </div>
+                        <div class="qa-card" id="qa-auto-test">
+                            <h3>🤖 自动化测试</h3>
+                            <div class="qa-status pending">待执行</div>
+                            <div class="qa-result" id="test-result"></div>
+                        </div>
+                    </div>
+                    <div class="action-bar centered">
+                        <button class="btn btn-primary" onclick="runQA()">🚀 开始全面验收</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段5：数据复盘 -->
+            <div id="stage-data" class="stage-section">
+                <div class="workspace-header">
+                    <h2>🚀 上线与数据复盘</h2>
+                    <p>产品上线后，通过数据分析验证产品效果。</p>
+                </div>
+                <div class="workspace-content">
+                    <div class="upload-area-large" id="data-upload-area" onclick="document.getElementById('data-file-input').click()">
+                        <div class="upload-icon">📊</div>
+                        <div class="upload-text">上传运营数据 (Excel)</div>
+                        <p class="upload-hint">AI 将自动分析用户行为、留存率及核心指标</p>
                         <input type="file" id="data-file-input" class="file-input" multiple accept=".xlsx,.xls" onchange="handleDataFiles(event)">
                     </div>
-                    <div id="data-file-list" style="margin-top: 20px;"></div>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" id="analyze-btn" onclick="startDataAnalysis()" disabled>🔍 开始分析</button>
+                    <div id="data-file-list" class="file-list"></div>
+                    <div id="data-report" class="report-container hidden"></div>
+                    <div class="action-bar centered">
+                        <button class="btn btn-primary" id="analyze-btn" onclick="startDataAnalysis()" disabled>📈 生成复盘报告</button>
                     </div>
                 </div>
             </div>
 
-            <!-- 模块3：代码审查与质量保证 -->
-            <div id="module-code" class="module-section">
-                <div class="content-card">
-                    <h1 class="page-title">代码审查与质量保证</h1>
-                    <p class="page-subtitle">AI自动审查代码，发现架构、安全、性能问题</p>
-                    <div class="input-group">
-                        <label class="input-label" for="code-input">粘贴你的代码</label>
-                        <textarea id="code-input" class="input-code" placeholder="粘贴你的代码到这里..."></textarea>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" onclick="startCodeReview()">🔍 开始审查</button>
-                    </div>
+            <!-- 全局 Loading 遮罩 -->
+            <div id="global-loading" class="global-loading hidden">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <h3 id="loading-title">AI 正在思考...</h3>
+                    <p id="loading-text">正在分析需求上下文...</p>
                 </div>
             </div>
-
-            <!-- 模块4：设计稿自动生成 -->
-            <div id="module-design" class="module-section">
-                <div class="content-card">
-                    <h1 class="page-title">设计稿自动生成</h1>
-                    <p class="page-subtitle">描述设计需求，AI自动生成符合品牌规范的设计稿</p>
-                    <div class="input-group">
-                        <label class="input-label" for="design-input">描述你的设计需求</label>
-                        <textarea id="design-input" class="input-textarea" placeholder="例如：设计一个登录页面..."></textarea>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" onclick="generateDesign()">✨ 生成设计稿</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 处理中页面 -->
-            <div id="processing-page" class="content-card hidden">
-                <div class="processing-page">
-                    <div class="processing-icon" id="processing-icon">🤖</div>
-                    <h2 class="processing-title" id="processing-title">AI正在处理...</h2>
-                    <div class="processing-status" id="processing-status">正在分析...</div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                    </div>
-                    <div style="color: #666; margin-top: 10px;" id="progress-text">0%</div>
-                    <div id="project-id-display" style="margin-top: 20px; color: #999; font-size: 14px;"></div>
-                </div>
-            </div>
-
-            <!-- 结果展示区域 -->
-            <div id="results-container" class="content-card hidden"></div>
         </main>
     </div>
 

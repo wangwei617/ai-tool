@@ -3,8 +3,6 @@
  * 支持多个AI模型，包括Claude、GPT等
  */
 
-// OpenRouter API配置
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // 默认使用Claude 3.5 Sonnet
@@ -15,17 +13,26 @@ const DEFAULT_MODEL = 'anthropic/claude-3.5-sonnet';
  */
 class AIService {
   /**
+   * 获取API Key（运行时读取，确保获取最新值）
+   */
+  getApiKey() {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey || apiKey.trim() === '') {
+      throw new Error('未配置 OPENROUTER_API_KEY 环境变量。请在 Vercel Dashboard → Settings → Environment Variables 中配置。');
+    }
+    return apiKey.trim();
+  }
+
+  /**
    * 调用OpenRouter API
    */
   async callOpenRouter(messages, maxTokens = 4000) {
-    if (!OPENROUTER_API_KEY) {
-      throw new Error('未配置 OPENROUTER_API_KEY 环境变量');
-    }
+    const apiKey = this.getApiKey();
 
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.APP_URL || 'https://ai-tool-zeta.vercel.app',
         'X-Title': 'AI Work Platform',
@@ -40,7 +47,12 @@ class AIService {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMsg = errorData.error?.message || `OpenRouter API error: ${response.status}`;
-      console.error('OpenRouter API error:', errorMsg);
+      console.error('OpenRouter API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorMsg,
+        apiKeyConfigured: !!apiKey,
+      });
       throw new Error(errorMsg);
     }
 
