@@ -101,14 +101,21 @@ function getStatusText(status) {
 
 // ==================== 阶段1：需求定义 ====================
 
-function fillRequirement(text) {
+// 显式挂载到 window 对象，防止作用域问题
+window.fillRequirement = function(text) {
+    console.log('Filling requirement:', text); // 添加日志方便调试
     const textarea = document.getElementById('req-input');
-    textarea.value = text;
-    textarea.focus();
-    // 简单的动画反馈
-    textarea.style.backgroundColor = '#f0f7ff';
-    setTimeout(() => textarea.style.backgroundColor = '', 300);
-}
+    if (textarea) {
+        textarea.value = text;
+        textarea.focus();
+        // 简单的动画反馈
+        textarea.style.backgroundColor = '#f0f7ff';
+        textarea.style.transition = 'background-color 0.3s';
+        setTimeout(() => textarea.style.backgroundColor = '', 300);
+    } else {
+        console.error('Cannot find textarea with id "req-input"');
+    }
+};
 
 function confirmRequirement() {
     const reqText = document.getElementById('req-input').value.trim();
