@@ -170,7 +170,31 @@
                     <div class="view-right">
                         <div class="action-panel">
                             <h3>优化方向</h3>
-                            <textarea id="ui-refinement" class="input-textarea-sm" placeholder="例如：使用蓝色系主色调，增加卡片阴影，按钮改为圆角..."></textarea>
+                            
+                            <!-- 新增：视觉风格预设 -->
+                            <div class="style-presets">
+                                <label class="input-label" style="font-size: 12px; color: #666;">💡 选择视觉风格（点击应用）：</label>
+                                <div class="style-grid">
+                                    <div class="style-card" onclick="applyStyle('使用极简现代风格 (Modern Minimalist)。大量留白，使用无衬线字体，微妙的阴影，主色调为黑白灰搭配一种强调色。界面要干净、清爽。')">
+                                        <div class="style-preview style-minimal"></div>
+                                        <span>⚪️ 极简现代</span>
+                                    </div>
+                                    <div class="style-card" onclick="applyStyle('使用深色模式 (Dark Mode)。深灰色背景 (#1a1a1a)，高对比度文字，使用霓虹色或高亮色作为强调。具有科技感和沉浸感。')">
+                                        <div class="style-preview style-dark"></div>
+                                        <span>⚫️ 深色模式</span>
+                                    </div>
+                                    <div class="style-card" onclick="applyStyle('使用商务科技风格 (Corporate Tech)。主色调为深蓝/科技蓝，使用卡片式布局，规整的网格，字体专业干练。适合B端产品。')">
+                                        <div class="style-preview style-tech"></div>
+                                        <span>🔵 商务科技</span>
+                                    </div>
+                                    <div class="style-card" onclick="applyStyle('使用活泼趣味风格 (Playful)。大圆角 (Rounded)，明亮鲜艳的配色（如黄、粉、薄荷绿），可爱的图标，字体圆润。适合C端或年轻化产品。')">
+                                        <div class="style-preview style-playful"></div>
+                                        <span>🟡 活泼趣味</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <textarea id="ui-refinement" class="input-textarea-sm" placeholder="在此输入具体优化需求，或点击上方风格快速填充..."></textarea>
                             <button class="btn btn-primary full-width" onclick="optimizeUI()">🎨 执行 UI 升级</button>
                         </div>
                     </div>

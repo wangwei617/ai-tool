@@ -188,6 +188,20 @@ function renderPreview(containerId, html) {
 
 // ==================== 阶段3：UI/UX优化 ====================
 
+// 应用风格预设
+window.applyStyle = function(styleDesc) {
+    const textarea = document.getElementById('ui-refinement');
+    textarea.value = styleDesc;
+    
+    // 视觉反馈
+    textarea.style.backgroundColor = '#f0f7ff';
+    setTimeout(() => textarea.style.backgroundColor = '', 300);
+    
+    // 自动聚焦但暂不自动提交，给用户微调机会
+    // 如果需要自动提交，可以取消下面这行的注释
+    // optimizeUI(); 
+}
+
 async function optimizeUI() {
     const baseHtml = ProjectState.projectData.mvp.html;
     if (!baseHtml) {

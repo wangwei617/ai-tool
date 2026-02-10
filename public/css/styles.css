@@ -331,6 +331,55 @@ body {
     text-align: center;
 }
 
+/* 风格预设 */
+.style-presets {
+    margin-bottom: 15px;
+}
+
+.style-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.style-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+}
+
+.style-card:hover {
+    border-color: var(--primary-color);
+    background: #f0f7ff;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.style-preview {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid #ddd;
+}
+
+.style-minimal { background: #fff; }
+.style-dark { background: #333; }
+.style-tech { background: #0056b3; }
+.style-playful { background: #ffca28; }
+
+.style-card span {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
 /* 分栏布局 (MVP/UI阶段) */
 .split-view {
     display: flex;
