@@ -101,6 +101,15 @@ function getStatusText(status) {
 
 // ==================== 阶段1：需求定义 ====================
 
+function fillRequirement(text) {
+    const textarea = document.getElementById('req-input');
+    textarea.value = text;
+    textarea.focus();
+    // 简单的动画反馈
+    textarea.style.backgroundColor = '#f0f7ff';
+    setTimeout(() => textarea.style.backgroundColor = '', 300);
+}
+
 function confirmRequirement() {
     const reqText = document.getElementById('req-input').value.trim();
     if (!reqText || reqText.length < 10) {

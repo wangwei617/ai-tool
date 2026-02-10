@@ -101,6 +101,18 @@
                     <div class="input-group">
                         <label class="input-label">产品构想 / 需求描述</label>
                         <textarea id="req-input" class="input-textarea" placeholder="例如：我想做一个在线待办事项应用，支持任务分类、优先级排序，并且有一个数据看板统计完成率..."></textarea>
+                        
+                        <!-- 新增：推荐提示词 -->
+                        <div class="prompt-tags-container">
+                            <span class="prompt-label">💡 灵感推荐：</span>
+                            <div class="prompt-tags">
+                                <button class="prompt-tag" onclick="fillRequirement('我想做一个简单的待办事项管理应用，支持任务的增删改查，并且可以将任务标记为完成。界面要简洁清新，支持移动端适配。')">📝 待办清单</button>
+                                <button class="prompt-tag" onclick="fillRequirement('帮我设计一个个人博客的主页，包含个人简介头像、文章列表卡片、标签云和底部社交媒体链接。风格要现代极简，使用黑白灰配色。')">👤 个人博客</button>
+                                <button class="prompt-tag" onclick="fillRequirement('我需要一个销售数据可视化大屏，包含顶部关键指标卡片（总销售额、订单量）、中间的月度趋势折线图、右侧的商品占比饼图，以及底部的最新订单列表。')">📊 数据看板</button>
+                                <button class="prompt-tag" onclick="fillRequirement('设计一个电商商品详情页，包含左侧商品大图轮播、右侧价格显示、规格颜色选择器、数量加减、用户评价列表和底部的“立即购买”悬浮按钮。')">🛍 电商详情页</button>
+                                <button class="prompt-tag" onclick="fillRequirement('做一个由AI驱动的登录注册页面，左侧是品牌宣传图，右侧是表单。包含邮箱登录、第三方快捷登录，并且有忘记密码功能的交互。')">🔐 登录注册</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="action-bar">
                         <button class="btn btn-primary" onclick="confirmRequirement()">✅ 确认需求并进入开发</button>

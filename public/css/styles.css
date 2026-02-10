@@ -252,6 +252,43 @@ body {
     margin-bottom: 10px;
 }
 
+/* 推荐提示词 */
+.prompt-tags-container {
+    margin-top: 15px;
+    margin-bottom: 25px;
+}
+
+.prompt-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-right: 10px;
+}
+
+.prompt-tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    vertical-align: top;
+}
+
+.prompt-tag {
+    background: #f0f7ff;
+    color: var(--primary-color);
+    border: 1px solid rgba(74, 144, 226, 0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.prompt-tag:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(74, 144, 226, 0.3);
+}
+
 /* 按钮 */
 .btn {
     padding: 10px 20px;
