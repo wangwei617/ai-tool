@@ -236,10 +236,14 @@ ${dataSummary.substring(0, 6000)}
   }
 
   /**
-   * 代码审查
+   * 代码审查（三维走查版）
    */
   async reviewCode(code) {
-    const prompt = `你是一个专业的代码审查专家。请审查以下代码，全面检查架构、安全、性能、质量和逻辑问题。
+    const prompt = `你是一个全栈技术专家和产品体验专家。请对以下代码进行全方位的"三维走查"：
+
+1. 代码技术走查：检查语法错误、安全性、性能问题、最佳实践。
+2. 功能逻辑走查：检查业务逻辑是否完整、是否存在逻辑漏洞、流程是否通畅。
+3. 体验/UX走查：检查交互是否友好、视觉是否规范、文案是否清晰、是否存在体验断点。
 
 代码：
 \`\`\`
@@ -248,19 +252,28 @@ ${code}
 
 请以严格的JSON格式返回审查结果（不要添加任何额外文字），格式如下：
 {
-  "summary": {
-    "totalIssues": 0,
-    "critical": 0,
-    "warning": 0,
-    "info": 0
-  },
-  "issues": [
+  "codeIssues": [
     {
-      "type": "architecture/security/performance/quality/logic",
-      "severity": "critical/warning/info",
       "title": "问题标题",
-      "description": "问题描述",
-      "suggestion": "修复建议"
+      "description": "详细描述",
+      "severity": "critical/warning/info",
+      "suggestion": "技术修复建议"
+    }
+  ],
+  "logicIssues": [
+    {
+      "title": "逻辑问题标题",
+      "description": "描述功能缺陷或逻辑漏洞",
+      "severity": "critical/warning",
+      "suggestion": "业务修复建议"
+    }
+  ],
+  "uxIssues": [
+    {
+      "title": "体验问题标题",
+      "description": "描述体验不好的地方",
+      "severity": "warning/info",
+      "suggestion": "设计优化建议"
     }
   ]
 }`;
@@ -276,14 +289,14 @@ ${code}
       return {
         success: true,
         review: reviewResult,
-        message: '代码审查完成',
+        message: '三维走查完成',
       };
     } catch (error) {
-      console.error('代码审查失败:', error);
+      console.error('走查失败:', error);
       return {
         success: false,
         review: null,
-        message: error.message || '代码审查失败',
+        message: error.message || '走查失败',
       };
     }
   }

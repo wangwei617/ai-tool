@@ -70,7 +70,7 @@
                     <div class="step-icon">🔍</div>
                     <div class="step-content">
                         <div class="step-title">质量验收</div>
-                        <div class="step-desc">审查与测试</div>
+                        <div class="step-desc">三维走查与修复</div>
                     </div>
                     <div class="step-status" id="status-qa">待开始</div>
                 </div>
@@ -165,27 +165,59 @@
                 </div>
             </div>
 
-            <!-- 阶段4：质量验收 -->
+            <!-- 阶段4：质量验收 (三维走查) -->
             <div id="stage-qa" class="stage-section">
                 <div class="workspace-header">
-                    <h2>🔍 代码审查与测试</h2>
-                    <p>对当前代码进行全方位体检，发现潜在 Bug 和性能瓶颈。</p>
+                    <h2>🔍 质量验收工作台</h2>
+                    <p>三维走查：代码质量、功能逻辑、用户体验，全方位保障产品质量。</p>
                 </div>
                 <div class="workspace-content">
-                    <div class="qa-grid">
-                        <div class="qa-card" id="qa-code-review">
-                            <h3>🔍 代码审查</h3>
-                            <div class="qa-status pending">待执行</div>
-                            <div class="qa-result" id="review-result"></div>
+                    <div class="qa-dashboard">
+                        <!-- 维度1：代码技术 -->
+                        <div class="qa-column">
+                            <div class="qa-column-header code-header">
+                                <span class="qa-icon">🐛</span>
+                                <h3>代码/技术走查</h3>
+                            </div>
+                            <div class="qa-body" id="qa-code-body">
+                                <div class="empty-qa">待执行走查...</div>
+                            </div>
+                            <div class="qa-footer">
+                                <button class="btn-sm full-width" onclick="autoFixCode()" disabled id="btn-fix-code">🛠 一键修复 Bug</button>
+                            </div>
                         </div>
-                        <div class="qa-card" id="qa-auto-test">
-                            <h3>🤖 自动化测试</h3>
-                            <div class="qa-status pending">待执行</div>
-                            <div class="qa-result" id="test-result"></div>
+
+                        <!-- 维度2：功能逻辑 -->
+                        <div class="qa-column">
+                            <div class="qa-column-header logic-header">
+                                <span class="qa-icon">⚙️</span>
+                                <h3>功能/逻辑走查</h3>
+                            </div>
+                            <div class="qa-body" id="qa-logic-body">
+                                <div class="empty-qa">待执行走查...</div>
+                            </div>
+                            <div class="qa-footer">
+                                <button class="btn-sm full-width" onclick="fixLogic()" disabled id="btn-fix-logic">🧠 修复逻辑问题</button>
+                            </div>
+                        </div>
+
+                        <!-- 维度3：体验/UX -->
+                        <div class="qa-column">
+                            <div class="qa-column-header ux-header">
+                                <span class="qa-icon">👁️</span>
+                                <h3>体验/UX走查</h3>
+                            </div>
+                            <div class="qa-body" id="qa-ux-body">
+                                <div class="empty-qa">待执行走查...</div>
+                            </div>
+                            <div class="qa-footer">
+                                <button class="btn-sm full-width" onclick="feedbackToUI()" disabled id="btn-feedback-ui">↩️ 反馈给 UI 优化</button>
+                            </div>
                         </div>
                     </div>
+                    
                     <div class="action-bar centered">
-                        <button class="btn btn-primary" onclick="runQA()">🚀 开始全面验收</button>
+                        <button class="btn btn-primary" onclick="runFullQA()">🚀 开始全方位走查</button>
                     </div>
                 </div>
             </div>

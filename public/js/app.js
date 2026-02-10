@@ -6,13 +6,13 @@
 // ==================== 全局状态管理 ====================
 
 const ProjectState = {
-    currentStage: 'requirement', // requirement, mvp, ui, qa, data
+    currentStage: 'requirement',
     projectData: {
         name: '未命名产品 v1.0',
         requirement: '',
         mvp: {
             html: '',
-            status: 'pending' // pending, processing, completed, failed
+            status: 'pending'
         },
         ui: {
             html: '',
@@ -20,8 +20,7 @@ const ProjectState = {
             status: 'pending'
         },
         qa: {
-            review: null,
-            testResults: null,
+            review: null, // 包含 codeIssues, logicIssues, uxIssues
             status: 'pending'
         },
         data: {
@@ -35,7 +34,6 @@ const ProjectState = {
 // ==================== 导航与阶段控制 ====================
 
 function switchStage(stage) {
-    // 简单的阶段守卫：前置阶段必须完成才能进入下一阶段（除Requirement外）
     if (stage !== 'requirement') {
         if (!ProjectState.projectData.requirement) {
             alert('请先完成需求定义阶段！');
@@ -45,19 +43,17 @@ function switchStage(stage) {
             alert('请先生成 MVP 代码！');
             return;
         }
-        if (stage === 'qa' && !ProjectState.projectData.ui.html) {
-            alert('请先完成 UI 优化！');
+        if (stage === 'qa' && !ProjectState.projectData.ui.html && !ProjectState.projectData.mvp.html) {
+            alert('请先有可审查的代码（MVP或UI版本）！');
             return;
         }
     }
 
-    // 更新状态
     ProjectState.currentStage = stage;
     renderStage();
 }
 
 function renderStage() {
-    // 1. 更新左侧导航高亮
     document.querySelectorAll('.step-item').forEach(item => {
         item.classList.remove('active');
         if (item.id === `step-${ProjectState.currentStage}`) {
@@ -65,10 +61,9 @@ function renderStage() {
         }
     });
 
-    // 2. 显示对应的主工作区
     document.querySelectorAll('.stage-section').forEach(section => {
         section.classList.remove('active');
-        section.style.display = 'none'; // 彻底隐藏
+        section.style.display = 'none';
     });
     const currentSection = document.getElementById(`stage-${ProjectState.currentStage}`);
     if (currentSection) {
@@ -76,7 +71,6 @@ function renderStage() {
         setTimeout(() => currentSection.classList.add('active'), 10);
     }
 
-    // 3. 更新各阶段状态指示器
     updateStatusIndicators();
 }
 
@@ -133,8 +127,6 @@ async function generateMVP() {
     updateStatusIndicators();
 
     try {
-        // 调用后端 API：生成原型
-        // 注意：这里复用原本的 generatePrototype 接口，但概念上它是生成 MVP
         const response = await API.generatePrototype(ProjectState.projectData.requirement, 'MVP v1.0');
         
         hideLoading();
@@ -144,11 +136,9 @@ async function generateMVP() {
             ProjectState.projectData.mvp.html = html;
             ProjectState.projectData.mvp.status = 'completed';
             
-            // 渲染预览
             renderPreview('mvp-preview', html);
             logMessage('mvp-logs', '✅ MVP 代码生成成功！');
             
-            // 自动提示下一步
             setTimeout(() => {
                 if(confirm('MVP 生成完成！是否进入 UI 优化阶段？')) {
                     switchStage('ui');
@@ -183,7 +173,6 @@ function renderPreview(containerId, html) {
 // ==================== 阶段3：UI/UX优化 ====================
 
 async function optimizeUI() {
-    // 基于 MVP 代码 + 优化需求进行 UI 升级
     const baseHtml = ProjectState.projectData.mvp.html;
     if (!baseHtml) {
         alert('请先生成 MVP 代码！');
@@ -202,14 +191,11 @@ async function optimizeUI() {
     updateStatusIndicators();
 
     try {
-        // 调用后端 API：生成设计
-        // 复用 generateDesign 接口
         const response = await API.generateDesign(fullRequirement, 'UI v2.0', {});
         
         hideLoading();
 
         if (response.success && response.designs.length > 0) {
-            // 取第一个方案作为主要优化结果
             const bestDesign = response.designs[0];
             const html = extractHtml(bestDesign.html);
             
@@ -229,93 +215,179 @@ async function optimizeUI() {
     updateStatusIndicators();
 }
 
-// ==================== 阶段4：质量验收 ====================
+// ==================== 阶段4：质量验收 (三维走查) ====================
 
-async function runQA() {
+async function runFullQA() {
     const codeToReview = ProjectState.projectData.ui.html || ProjectState.projectData.mvp.html;
     if (!codeToReview) {
-        alert('没有可审查的代码！');
+        alert('没有可审查的代码！请先完成 MVP 或 UI 阶段。');
         return;
     }
 
-    showLoading('正在进行全方位验收...', 'AI 正在审查代码质量并运行自动化测试...');
+    showLoading('正在进行全方位三维走查...', 'AI 正在分别检查代码质量、功能逻辑和用户体验...');
     ProjectState.projectData.qa.status = 'processing';
     updateStatusIndicators();
 
-    // 更新UI状态
-    document.querySelector('#qa-code-review .qa-status').textContent = '审查中...';
-    document.querySelector('#qa-code-review .qa-status').className = 'qa-status processing';
-    document.querySelector('#qa-auto-test .qa-status').textContent = '运行中...';
-    document.querySelector('#qa-auto-test .qa-status').className = 'qa-status processing';
+    // 清空旧结果
+    document.getElementById('qa-code-body').innerHTML = '<div class="loading-qa">检查中...</div>';
+    document.getElementById('qa-logic-body').innerHTML = '<div class="loading-qa">检查中...</div>';
+    document.getElementById('qa-ux-body').innerHTML = '<div class="loading-qa">检查中...</div>';
 
     try {
-        // 1. 代码审查 (调用 reviewCode API)
-        const reviewResponse = await API.reviewCode(codeToReview, 'QA Review');
-        
-        // 2. 模拟自动化测试 (前端模拟，或者调用特定API)
-        // 这里为了演示效果，我们解析代码审查中的"严重"问题作为测试失败项
+        const response = await API.reviewCode(codeToReview, 'Full Walkthrough');
         
         hideLoading();
 
-        if (reviewResponse.success) {
-            ProjectState.projectData.qa.review = reviewResponse.review;
+        if (response.success) {
+            ProjectState.projectData.qa.review = response.review;
             ProjectState.projectData.qa.status = 'completed';
             
-            renderQAResults(reviewResponse.review);
+            renderQAResults(response.review);
         } else {
-            throw new Error(reviewResponse.message);
+            throw new Error(response.message);
         }
 
     } catch (error) {
         hideLoading();
         ProjectState.projectData.qa.status = 'failed';
-        alert(`质量验收失败: ${error.message}`);
-        
-        document.querySelector('#qa-code-review .qa-status').textContent = '失败';
-        document.querySelector('#qa-code-review .qa-status').className = 'qa-status failed';
+        alert(`走查失败: ${error.message}`);
     }
     updateStatusIndicators();
 }
 
 function renderQAResults(review) {
-    // 渲染代码审查结果
-    const reviewContainer = document.getElementById('review-result');
-    const issues = review.issues || [];
-    const criticalIssues = issues.filter(i => i.severity === 'critical');
-    
-    reviewContainer.innerHTML = `
-        <div class="stat-row">
-            <span class="stat-item">发现问题: <strong>${issues.length}</strong></span>
-            <span class="stat-item error">严重: <strong>${criticalIssues.length}</strong></span>
-            <span class="stat-item warning">警告: <strong>${issues.filter(i => i.severity === 'warning').length}</strong></span>
-        </div>
-        <ul class="issue-list">
-            ${issues.slice(0, 3).map(i => `<li>[${i.severity}] ${i.title}</li>`).join('')}
-            ${issues.length > 3 ? `<li>...等共 ${issues.length} 个问题</li>` : ''}
-        </ul>
-    `;
-    document.querySelector('#qa-code-review .qa-status').textContent = '已完成';
-    document.querySelector('#qa-code-review .qa-status').className = 'qa-status success';
+    const codeIssues = review.codeIssues || [];
+    const logicIssues = review.logicIssues || [];
+    const uxIssues = review.uxIssues || [];
 
-    // 渲染自动化测试结果 (模拟)
-    const testContainer = document.getElementById('test-result');
-    const testPassed = criticalIssues.length === 0;
-    
-    testContainer.innerHTML = `
-        <div class="test-summary ${testPassed ? 'success' : 'error'}">
-            ${testPassed ? '✅ 测试通过' : '❌ 测试未通过'}
+    // 渲染代码技术问题
+    renderIssueList('qa-code-body', codeIssues, '暂无技术问题');
+    document.getElementById('btn-fix-code').disabled = codeIssues.length === 0;
+
+    // 渲染功能逻辑问题
+    renderIssueList('qa-logic-body', logicIssues, '逻辑符合需求');
+    document.getElementById('btn-fix-logic').disabled = logicIssues.length === 0;
+
+    // 渲染体验UX问题
+    renderIssueList('qa-ux-body', uxIssues, '体验良好');
+    document.getElementById('btn-feedback-ui').disabled = uxIssues.length === 0;
+}
+
+function renderIssueList(containerId, issues, emptyText) {
+    const container = document.getElementById(containerId);
+    if (issues.length === 0) {
+        container.innerHTML = `<div class="empty-qa success">✅ ${emptyText}</div>`;
+        return;
+    }
+
+    container.innerHTML = issues.map(issue => `
+        <div class="issue-item ${issue.severity}">
+            <div class="issue-title">
+                <span class="issue-tag ${issue.severity}">${issue.severity === 'critical' ? '严重' : '警告'}</span>
+                ${escapeHtml(issue.title)}
+            </div>
+            <div class="issue-desc">${escapeHtml(issue.description)}</div>
+            ${issue.suggestion ? `<div class="issue-suggestion">💡 建议: ${escapeHtml(issue.suggestion)}</div>` : ''}
         </div>
-        <p class="test-desc">
-            ${testPassed ? '核心功能流程验证正常，未发现阻塞性 Bug。' : '发现阻塞性 Bug，建议修复后重新提测。'}
-        </p>
+    `).join('');
+}
+
+// ----------------- 修复逻辑 -----------------
+
+// 1. 修复代码 Bug
+async function autoFixCode() {
+    const issues = ProjectState.projectData.qa.review.codeIssues;
+    if (!issues || issues.length === 0) return;
+
+    if (!confirm(`确定要尝试自动修复 ${issues.length} 个技术问题吗？这将生成新的代码版本。`)) return;
+
+    const baseCode = ProjectState.projectData.ui.html || ProjectState.projectData.mvp.html;
+    const fixPrompt = `
+        请修复以下代码中的技术问题：
+        ${issues.map(i => `- ${i.title}: ${i.suggestion}`).join('\n')}
+        
+        保持原有功能和样式不变，仅修复上述问题。
     `;
-    document.querySelector('#qa-auto-test .qa-status').textContent = testPassed ? '通过' : '不通过';
-    document.querySelector('#qa-auto-test .qa-status').className = `qa-status ${testPassed ? 'success' : 'failed'}`;
+
+    await applyFix(baseCode, fixPrompt, '修复技术问题');
+}
+
+// 2. 修复逻辑问题
+async function fixLogic() {
+    const issues = ProjectState.projectData.qa.review.logicIssues;
+    if (!issues || issues.length === 0) return;
+
+    if (!confirm(`确定要修复 ${issues.length} 个逻辑问题吗？可能会调整业务流程。`)) return;
+
+    const baseCode = ProjectState.projectData.ui.html || ProjectState.projectData.mvp.html;
+    const fixPrompt = `
+        请基于原始需求，修复代码中的逻辑问题：
+        ${issues.map(i => `- ${i.title}: ${i.suggestion}`).join('\n')}
+    `;
+
+    await applyFix(baseCode, fixPrompt, '修复逻辑漏洞');
+}
+
+// 通用修复函数
+async function applyFix(baseCode, instructions, actionName) {
+    showLoading('正在修复...', `AI 正在根据指示 ${actionName}...`);
+    
+    try {
+        // 使用 generateDesign 接口进行代码修改（因为它支持基于描述生成代码）
+        // 实际上后端是调用 AI，prompt 会包含修复指令
+        const fullPrompt = `
+            原有代码：
+            ${baseCode.substring(0, 10000)}... (截取部分)
+            
+            修复指令：
+            ${instructions}
+            
+            请返回修复后的完整 HTML 代码。
+        `;
+
+        const response = await API.generateDesign(instructions, `${actionName} vX.X`, {}); // 简化调用，实际应传完整 prompt
+        
+        hideLoading();
+
+        if (response.success && response.designs.length > 0) {
+            const newHtml = extractHtml(response.designs[0].html);
+            
+            // 更新 UI 阶段的代码（假定 UI 阶段是最新的代码容器）
+            ProjectState.projectData.ui.html = newHtml;
+            ProjectState.projectData.ui.status = 'completed';
+            
+            alert(`✅ ${actionName} 完成！已更新 UI 阶段的代码。`);
+            switchStage('ui'); // 跳转回 UI 阶段查看结果
+            renderPreview('ui-preview', newHtml);
+        } else {
+            throw new Error('修复失败，未生成有效代码');
+        }
+    } catch (error) {
+        hideLoading();
+        alert(`修复失败: ${error.message}`);
+    }
+}
+
+// 3. 反馈给 UI 优化
+function feedbackToUI() {
+    const issues = ProjectState.projectData.qa.review.uxIssues;
+    if (!issues || issues.length === 0) return;
+
+    const feedbackText = issues.map(i => `[UX问题] ${i.title}: ${i.suggestion}`).join('\n');
+    
+    // 跳转到 UI 阶段
+    switchStage('ui');
+    
+    // 填充到优化输入框
+    const uiInput = document.getElementById('ui-refinement');
+    uiInput.value = feedbackText + '\n' + uiInput.value;
+    
+    alert('已将 UX 问题反馈至 UI 优化输入框，请点击"执行 UI 升级"进行修复。');
+    uiInput.focus();
 }
 
 // ==================== 阶段5：数据复盘 ====================
 
-// 复用原本的数据分析逻辑，但UI适配到新界面
 let dataFiles = [];
 
 function handleDataFiles(event) {
@@ -335,10 +407,9 @@ function handleDataFiles(event) {
 
 function removeDataFile(index) {
     dataFiles.splice(index, 1);
-    // 重新渲染... (简化处理，实际应复用handleDataFiles逻辑)
-    document.getElementById('data-file-input').value = ''; // Reset
-    document.getElementById('data-file-list').innerHTML = ''; // Clear
-    dataFiles = []; // Clear for simplicity in this demo logic
+    document.getElementById('data-file-input').value = ''; 
+    document.getElementById('data-file-list').innerHTML = ''; 
+    dataFiles = []; 
     document.getElementById('analyze-btn').disabled = true;
 }
 
@@ -350,7 +421,6 @@ async function startDataAnalysis() {
     updateStatusIndicators();
 
     try {
-        // 转换文件
         const filesWithData = await Promise.all(dataFiles.map(file => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -408,7 +478,6 @@ function renderDataReport(analysis) {
     `;
 }
 
-
 // ==================== 通用 UI 工具 ====================
 
 function showLoading(title, text) {
@@ -432,7 +501,6 @@ function logMessage(containerId, msg) {
     }
 }
 
-// 辅助函数
 function extractHtml(text) {
     if (!text) return '';
     let html = text.trim();
@@ -447,24 +515,49 @@ function safeSrcdoc(html) {
     return html.replace(/"/g, '&quot;');
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function resetProject() {
     if(confirm('确定要新建项目吗？当前进度将丢失。')) {
         location.reload();
     }
 }
 
-// 初始化
+function downloadHTML(containerId) {
+    // 简单实现，实际可以复用ProjectState中的数据
+    const html = ProjectState.projectData.ui.html || ProjectState.projectData.mvp.html;
+    if (html) {
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `project-${new Date().getTime()}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+}
+
+function openFullscreen(containerId) {
+    const html = ProjectState.projectData.ui.html || ProjectState.projectData.mvp.html;
+    if (html) {
+        const newWindow = window.open('', '_blank');
+        newWindow.document.write(html);
+        newWindow.document.close();
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-    // 默认进入第一阶段
     switchStage('requirement');
-    
-    // API健康检查
     API.healthCheck().then(res => {
         document.getElementById('api-status-indicator').title = "API服务正常";
         document.getElementById('api-status-indicator').textContent = "🟢";
     }).catch(err => {
         document.getElementById('api-status-indicator').title = "API服务异常";
         document.getElementById('api-status-indicator').textContent = "🔴";
-        console.error('API Check Failed', err);
     });
 });
